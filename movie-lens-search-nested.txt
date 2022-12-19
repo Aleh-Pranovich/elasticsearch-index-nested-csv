@@ -1,0 +1,174 @@
+# find movie by movieId
+GET movie_full_nested_index/_search
+{
+  "query": {
+    "term": {
+      "movieId": {
+        "value": 260
+      }
+    }
+  }
+}
+
+# find all
+GET movie_full_nested_index/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+# match phrase
+GET movie_full_nested_index/_search
+{
+  "query": {
+    "match_phrase": {
+      "title": "Toy Story"
+    }
+  }
+}
+
+# fuzzy query
+GET movie_full_nested_index/_search
+{
+  "query": {
+    "fuzzy": {
+      "title": {
+        "value": "tsory",
+		"fuzziness": "AUTO"
+      }
+    }
+  }
+}
+
+#filter by average rating
+GET movie_full_nested_index/_search
+{
+  "size": 0,
+  "aggs": {
+    "group_by_movie_id": {
+      "terms": {
+        "field": "movieId"
+      },
+      "aggs": {
+        "group_by_user": {
+          "nested": {
+            "path": "ratings"
+          },
+          "aggs": {
+            "avg_rating": {
+              "avg": {
+                "field": "ratings.rating"
+              }
+            }
+          }
+        },
+        "sales_bucket_filter": {
+          "bucket_selector": {
+            "buckets_path": {
+              "avgRating": "group_by_user.avg_rating"
+            },
+            "script": "params.avgRating > 3.0"
+          }
+        }
+      }
+    }
+  }
+}
+
+#sort by average rating
+GET movie_full_nested_index/_search
+{
+  "size": 0,
+  "aggs": {
+    "group_by_movie_id": {
+      "terms": {
+        "field": "movieId"
+      },
+      "aggs": {
+        "group_by_user": {
+          "nested": {
+            "path": "ratings"
+          },
+          "aggs": {
+            "avg_rating": {
+              "avg": {
+                "field": "ratings.rating"
+              }
+            }
+          }
+        },
+        "rating_bucket_sort": {
+          "bucket_sort": {
+            "sort": [
+              {
+                "group_by_user.avg_rating": {
+                  "order": "desc"
+                }
+              }
+            ],
+            "size": 10
+          }
+        }
+      }
+    }
+  }
+}
+
+
+#finding top-10 tags for the movie
+GET movie_full_nested_index/_search
+{
+  "size": 0,
+  "query": {
+    "match": {
+      "movieId": 260
+    }
+  },
+  "aggs": {
+    "group_by_movie_id": {
+      "terms": {
+        "field": "movieId"
+      },
+      "aggs": {
+        "group_by_tag": {
+          "nested": {
+            "path": "tags"
+          },
+          "aggs": {
+            "count_tags": {
+              "terms": {
+                "field": "tags.tag"
+              }
+            }
+          }
+        },
+        "tags_bucket_sort": {
+          "bucket_sort": {
+            "sort": [{"group_by_tag._count": {  "order": "desc"}}],
+            "size": 10
+          }
+        }
+      }
+    }
+  }
+}
+
+# find movies which userX is put rating of 5
+GET movie_full_nested_index/_search
+{
+  "query": {
+    "nested": {
+      "path": "ratings",
+      "query": {
+        "bool": {
+          "must": [
+            { "match": { "ratings.userId": 1 } },
+            { "match": { "ratings.rating": 5.0 } }
+          ]
+        }
+      }
+    }
+  }
+}
+
